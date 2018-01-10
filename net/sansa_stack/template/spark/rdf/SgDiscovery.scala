@@ -38,7 +38,7 @@ object SgDiscovery {
          .option("delimiter", "\t")
          .load("src/main/resources/SG/bank.csv")
     //dataSetDF.show()
-    //dataSetDF.withColumn("Counter", lit(5)).show
+
     val ontRDD:Array[RDD[Triple]] = new Array[RDD[Triple]](args.length);
     
     //load ontologies into different array elements
