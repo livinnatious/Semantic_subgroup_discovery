@@ -106,8 +106,7 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
     var i = 0
     val bestRuleSet = ListBuffer[Map[Int, String]]()
         do
-        {
-          
+        {     
            val bestRule = getBestRule(sortRuleSetWRAcc)
            println("bestrule: " + bestRule)
            println("---------")
@@ -122,9 +121,9 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
          } while(colDataSetDF == null || i < ruleSet.length) 
     } 
   
-  def getBestRule(sortRuleSetWRAcc: ListBuffer[Map[Map[Int, String], Double]]): Map[Int, String] = {
+  def getBestRule(sortRuleSetWRAcc: ListBuffer[(Map[Int, String], Double)]): Map[Int, String] = {
    
-     val bestRule = sortRuleSetWRAcc(0).keys.head
+     val bestRule = sortRuleSetWRAcc(0)._1
      bestRule 
   }
   def decreaseCount(bestRule: Map[Int, String]){
