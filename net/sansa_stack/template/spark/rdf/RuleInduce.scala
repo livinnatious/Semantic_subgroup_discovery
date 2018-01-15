@@ -63,7 +63,7 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
   def construct(rule: Map[Int, String], concept: String, k: Int){
     //TO-DO
     println(ruleSet.size)
-    if(ruleSet.size > 5){
+    if(ruleSet.size > 25){
       println(ruleSet.size)
       return
     }
@@ -157,9 +157,9 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
     childList.map(x => x.split("#").last)
   }
 
-  def calcWRAcc(rule: Map[Int, String]): Long = {
+  def calcWRAcc(rule: Map[Int, String]): Double = {
     println("ruleCnd(rule)"+ruleCnd(rule)+", N:"+ N +", ruleCndC(rule)"+ruleCndC(rule)+", C:"+C)
-    (ruleCnd(rule)/N)*((ruleCndC(rule)/ruleCnd(rule)) - (C/N))
+    (ruleCnd(rule)/N.toDouble)*((ruleCndC(rule)/ruleCnd(rule).toDouble) - (C/N.toDouble))
   }
   
 }
