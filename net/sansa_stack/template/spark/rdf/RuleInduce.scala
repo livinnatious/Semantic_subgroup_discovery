@@ -99,44 +99,44 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
     //conceptSetDF(concept, k).show 
   }
   
-//  def ruleSelection(ruleSetWRAcc: ListBuffer[(Map[Int, String], Double)]){ 
-//        
-//    var sortRuleSetWRAcc = ruleSetWRAcc.sortBy(x=>x.values.max).reverse
-//
-//    var i = 0
-//    val bestRuleSet = ListBuffer[Map[Int, String]]()
-//        do
-//        {
-//          
-//           val bestRule = getBestRule(sortRuleSetWRAcc)
-//           println("bestrule: " + bestRule)
-//           println("---------")
-//           decreaseCount(bestRule)
-//           val tempList = sortRuleSetWRAcc.slice(1, sortRuleSetWRAcc.length)
-//           sortRuleSetWRAcc = tempList
-//           bestRuleSet += bestRule
-//           println("bestRuleSet:")
-//           bestRuleSet.foreach(x => {println(x)})
-//           println("---------")
-//           i=i+1
-//         } while(colDataSetDF == null || i < ruleSet.length) 
-//    } 
-//  
-//  def getBestRule(sortRuleSetWRAcc: ListBuffer[Map[Map[Int, String], Double]]): Map[Int, String] = {
-//   
-//     val bestRule = sortRuleSetWRAcc(0).keys.head
-//     bestRule 
-//  }
-//  def decreaseCount(bestRule: Map[Int, String]){
-//      import spark.implicits._
-//      val WRADF = ruleSetDF(bestRule, colDataSetDF)
-//      if (WRADF.count() == 0)
-//        return
-//      val removeWRADFRow = colDataSetDF.except(WRADF).coalesce(2) 
-//      val decrementCounterUDF = udf((decrementCounter:Int) => decrementCounter-1) 
-//      val newDF = WRADF.withColumn("counter", decrementCounterUDF($"counter"))
-//      colDataSetDF = removeWRADFRow.union(newDF).filter($"counter">=4).coalesce(2)
-//  }
+  def ruleSelection(ruleSetWRAcc: ListBuffer[(Map[Int, String], Double)]){ 
+        
+    var sortRuleSetWRAcc = ruleSetWRAcc.sortWith(_._2 > _._2)
+
+    var i = 0
+    val bestRuleSet = ListBuffer[Map[Int, String]]()
+        do
+        {
+          
+           val bestRule = getBestRule(sortRuleSetWRAcc)
+           println("bestrule: " + bestRule)
+           println("---------")
+           decreaseCount(bestRule)
+           val tempList = sortRuleSetWRAcc.slice(1, sortRuleSetWRAcc.length)
+           sortRuleSetWRAcc = tempList
+           bestRuleSet += bestRule
+           println("bestRuleSet:")
+           bestRuleSet.foreach(x => {println(x)})
+           println("---------")
+           i+=1
+         } while(colDataSetDF == null || i < ruleSet.length) 
+    } 
+  
+  def getBestRule(sortRuleSetWRAcc: ListBuffer[Map[Map[Int, String], Double]]): Map[Int, String] = {
+   
+     val bestRule = sortRuleSetWRAcc(0).keys.head
+     bestRule 
+  }
+  def decreaseCount(bestRule: Map[Int, String]){
+      import spark.implicits._
+      val WRADF = ruleSetDF(bestRule, colDataSetDF)
+      if (WRADF.count() == 0)
+        return
+      val removeWRADFRow = colDataSetDF.except(WRADF).coalesce(2) 
+      val decrementCounterUDF = udf((decrementCounter:Int) => decrementCounter-1) 
+      val newDF = WRADF.withColumn("counter", decrementCounterUDF($"counter"))
+      colDataSetDF = removeWRADFRow.union(newDF).filter($"counter">=4).coalesce(2)
+  }
   
   //function to get the DF rows related to the rule
   def ruleSetDF(rule: Map[Int, String]): DataFrame = {
