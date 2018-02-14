@@ -59,7 +59,7 @@ object SgDiscovery {
     val dictDF = dictRDD.map(f=>(f, f.split("#").last)).toDF("uri","predicate")
     //dictDF.show(false)
     
-    val ruleInduce = new RuleInduce(dataSetDF, ontRDD, dictDF, spark)
+    val ruleInduce = new RuleInduce1(dataSetDF, ontRDD, dictDF, spark)
     
     ruleInduce.run()
     

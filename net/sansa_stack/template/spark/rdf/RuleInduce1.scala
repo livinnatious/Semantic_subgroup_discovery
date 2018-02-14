@@ -1,34 +1,34 @@
 ////////////////////////////////////////////////
 // Authors: Livin Natious, Pardeep Kumar Naik //
-// Created on: 01/12/2017                     //
+// Created on: 12/12/2017                     //
 // Version: 0.0.1                             //
 // Efficient Subgroup discovery using Spark   //
 ////////////////////////////////////////////////
 
 package net.sansa_stack.template.spark.rdf
-import scala.collection.mutable.ArrayBuffer
 
 import java.net.URI
 import scala.collection.mutable
 import scala.collection.mutable.Map
+import scala.collection.mutable.ListBuffer
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql._
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.rdd.RDD
 import net.sansa_stack.rdf.spark.io.NTripleReader
 import org.apache.jena.graph.Triple
 import org.apache.spark.sql.functions._
-import scala.collection.mutable.ListBuffer
 
-class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataFrame, spark: SparkSession) extends Serializable
-{
-  
+class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataFrame, spark: SparkSession) extends Serializable{
+
   //Config values wrt to ip dataset
   //minimum size(threshold) of interesting subgroup
-  val MIN_SIZE = 4 
+  val MIN_SIZE = 8
   //max terms in the rule(model)
   val MAX_TERMS = 4
   //max ontologies allowed(as per SEGS)
-  val MAX_ONT = 4
+  val MAX_ONT = ontRDD.length
+  //top concept of ontologies
+  val TOP_CONCEPT = "Thing"
   //Subgroup column and class
   val sgCol = "big_spender"
   val sgClass = "Yes"
@@ -37,40 +37,76 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
         1 -> List("location"), 
         2 -> List("account", "loan", "deposit", "investment_fund", "insurance"))
   
+  // N(total records) and C(total subgrp records) to calc WRAcc of rule
+  val N = dataSetDF.count
+  val C = dataSetDF.filter(dataSetDF(sgCol) === sgClass).count     
   // ruleCnd and ruleCndC to calc WRAcc of rule
   var ruleCnd = Map[Map[Int, String], Long]()
   var ruleCndC = Map[Map[Int, String], Long]()
-      var colDataSetDF = dataSetDF.withColumn("counter", lit(5))
-  def run()
-  {
-    
-    //construct(null, ontRDD(0), 0)
-    //println(descendants("BankingService",0))
-   // construct(Map(0 -> "Health", 1 -> "Poznan"), "", 0)
-    //println(ruleCompat(Map(2 -> "Gold")))
-    ruleConstruction()
+  
+  var ruleSet = new ListBuffer[Map[Int, String]]()
+  
+  val ont = spark.sparkContext.broadcast(ontRDD)
+  val descendantsRDD= new Array[RDD[(String, List[String])]](ontRDD.length);
+  
+  var colDataSetDF = dataSetDF.withColumn("counter", lit(5))
+  var ruleCounter = 0
+  
+  def run(){
+    //TO-DO
+    for(i <- 0 until ontRDD.length)
+      descendantsRDD(i) = genDescendantsRDD(i)
+      construct(Map(), TOP_CONCEPT, 0)  
+      println(ruleSet)
+      val ruleSetWRAcc = ruleSet.map(rule => (rule, calcWRAcc(rule)))
+      //val ruleSet = ListBuffer(Map(0 -> "Thing"), Map(1 -> "Thing", 0 -> "Thing"), Map(2 -> "Thing", 1 -> "Thing", 0 -> "Thing"), Map(1 -> "Location", 0 -> "Thing"), Map(2 -> "Thing", 1 -> "Location", 0 -> "Thing"), Map(1 -> "Europe", 0 -> "Thing"), Map(2 -> "Thing", 1 -> "Europe", 0 -> "Thing"), Map(0 -> "Occupation"), Map(1 -> "Thing", 0 -> "Occupation"), Map(2 -> "Thing", 1 -> "Thing", 0 -> "Occupation"), Map(1 -> "Location", 0 -> "Occupation"), Map(2 -> "Thing", 1 -> "Location", 0 -> "Occupation"), Map(1 -> "Europe", 0 -> "Occupation"), Map(2 -> "Thing", 1 -> "Europe", 0 -> "Occupation"), Map(0 -> "Public"), Map(1 -> "Thing", 0 -> "Public"), Map(2 -> "Thing", 1 -> "Thing", 0 -> "Public"), Map(1 -> "Location", 0 -> "Public"), Map(2 -> "Thing", 1 -> "Location", 0 -> "Public"), Map(1 -> "Europe", 0 -> "Public"), Map(2 -> "Thing", 1 -> "Europe", 0 -> "Public"));
+      //val ruleSetWRAcc = ListBuffer((Map(0 -> "Thing"),0.0), (Map(1 -> "Thing", 0 -> "Thing"),0.0), (Map(2 -> "Thing", 1 -> "Thing", 0 -> "Thing"),0.0), (Map(1 -> "Location", 0 -> "Thing"),0.0), (Map(2 -> "Thing", 1 -> "Location", 0 -> "Thing"),0.0), (Map(1 -> "Europe", 0 -> "Thing"),0.0), (Map(2 -> "Thing", 1 -> "Europe", 0 -> "Thing"),0.0), (Map(0 -> "Occupation"),0.0), (Map(1 -> "Thing", 0 -> "Occupation"),0.0), (Map(2 -> "Thing", 1 -> "Thing", 0 -> "Occupation"),0.0), (Map(1 -> "Location", 0 -> "Occupation"),0.0), (Map(2 -> "Thing", 1 -> "Location", 0 -> "Occupation"),0.0), (Map(1 -> "Europe", 0 -> "Occupation"),0.0), (Map(2 -> "Thing", 1 -> "Europe", 0 -> "Occupation"),0.0), (Map(0 -> "Public"),0.03333333333333335), (Map(1 -> "Thing", 0 -> "Public"),0.03333333333333335), (Map(2 -> "Thing", 1 -> "Thing", 0 -> "Public"),0.0), (Map(1 -> "Location", 0 -> "Public"),0.03333333333333335), (Map(2 -> "Thing", 1 -> "Location", 0 -> "Public"),0.0), (Map(1 -> "Europe", 0 -> "Public"),0.03333333333333335), (Map(2 -> "Thing", 1 -> "Europe", 0 -> "Public"),0.0));
+      println(ruleSetWRAcc)
+      ruleSelection(ruleSetWRAcc)
+    //checkTopConcept("Location", 1)
   }
   
-  def ruleConstruction()
-  { 
-
-    val ruleSet:ListBuffer[Map[Int, String]] = ListBuffer(Map(0 -> "Doctor", 1 -> "Rome"),
-        Map(0 -> "Doctor", 1 -> "Frankfurt", 2 -> "Deposit"),
-        Map(0 -> "Police", 2 -> "Gold"), 
-        Map(0 -> "Police", 1 -> "Munich", 2 -> "Gold"))
+  //rule construction method; 3 inputs: current rule, concept of ontology 'k', ontology index 'k' 
+  def construct(rule: Map[Int, String], concept: String, k: Int){
+    //TO-DO
+  //  println(ruleSet.size)
+    if(ruleSet.size > 20){
+      println(ruleSet.size)
+      return
+    }
+    val allNewSetDF = ruleSetDF(rule).intersect(conceptSetDF(concept, k));
+    val newSetDF = allNewSetDF.filter(dataSetDF(sgCol) === sgClass)
+    //newSetDF.show
+    if(newSetDF.count > MIN_SIZE){
+      val ruleAdd = rule ++ Map( k -> concept)
+      
+      if(ruleAdd.size < MAX_TERMS && ruleAdd.size > 0){
+        ruleSet += ruleAdd
+        ruleCnd(ruleAdd) = allNewSetDF.count
+        ruleCndC(ruleAdd) = newSetDF.count
+      }
+      
+      if(ruleAdd.size < math.max(MAX_TERMS,MAX_ONT) && k < MAX_ONT-1){
+        construct(ruleAdd, TOP_CONCEPT, k+1)
+      
+        val ruleMin = ruleAdd - k
         
-    val ruleSetWRAcc:ListBuffer[Map[Map[Int, String], Double]] = ListBuffer(Map(ruleSet(0) -> 5.92),
-        Map(ruleSet(1) -> 4.14),
-        Map(ruleSet(2) -> 4.92),
-        Map(ruleSet(3) -> 1.04))
+        for( child <- getChildren(concept,k)){
+          if(conceptSetDF(child, k).count > MIN_SIZE)
+            construct(ruleMin, child, k)
+        }
+      }
+    }    
+  } 
+  
+  def ruleSelection(ruleSetWRAcc: ListBuffer[(Map[Int, String], Double)]){ 
         
-    var sortRuleSetWRAcc = ruleSetWRAcc.sortBy(x=>x.values.max).reverse
+    var sortRuleSetWRAcc = ruleSetWRAcc.sortWith(_._2 > _._2)
 
     var i = 0
-    val bestRuleSet = ArrayBuffer[Map[Int, String]]()
+    val bestRuleSet = ListBuffer[Map[Int, String]]()
         do
-        {
-          
+        {     
            val bestRule = getBestRule(sortRuleSetWRAcc)
            println("bestrule: " + bestRule)
            println("---------")
@@ -81,83 +117,130 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
            println("bestRuleSet:")
            bestRuleSet.foreach(x => {println(x)})
            println("---------")
-           i=i+1
+           i+=1
          } while(colDataSetDF == null || i < ruleSet.length) 
-    }    
+    } 
+  
+  def getBestRule(sortRuleSetWRAcc: ListBuffer[(Map[Int, String], Double)]): Map[Int, String] = {
    
-
- def getBestRule(sortRuleSetWRAcc: ListBuffer[Map[Map[Int, String], Double]]): Map[Int, String] =
-  {
-   
-     val bestRule = sortRuleSetWRAcc(0).keys.head
+     val bestRule = sortRuleSetWRAcc(0)._1
      bestRule 
   }
-  def decreaseCount(bestRule: Map[Int, String]) 
-  {
+  def decreaseCount(bestRule: Map[Int, String]){
       import spark.implicits._
-      val WRADF = ruleSetDF(bestRule, colDataSetDF)
-      if (WRADF.count() == 0)
-        return
-      val removeWRADFRow = colDataSetDF.except(WRADF).coalesce(2) 
+      println("decreaseCount Begining")
       val decrementCounterUDF = udf((decrementCounter:Int) => decrementCounter-1) 
+      val WRADF = ruleSetDF(bestRule, colDataSetDF)
+//      println("decreaseCount -1")
+//      if (WRADF == null)
+//        return
+//      println("decreaseCount 0")
+//      if(WRADF == colDataSetDF){
+//        colDataSetDF = colDataSetDF.withColumn("counter", decrementCounterUDF($"counter"))
+//        return
+//      }
+      println("decreaseCount 1")
+      val removeWRADFRow = colDataSetDF.except(WRADF)
+      println("decreaseCount 2")
       val newDF = WRADF.withColumn("counter", decrementCounterUDF($"counter"))
-      colDataSetDF = removeWRADFRow.union(newDF).filter($"counter">=4).coalesce(2)
+      println("decreaseCount 3")
+      colDataSetDF = removeWRADFRow.union(newDF).filter($"counter">=1)
+      println("decreaseCount End")
   }
- /* def decrementCounter(row: Row): Int ={
-    
-          row.get(9).toString.toInt-1
-  } */
-  //rule construction method; 3 inputs: current rule, concept of ontology 'k', ontology index 'k' 
-/*  def construct(rule: Map[Int, String], concept: String, k: Int)
-  {
-    //TO-DO
-
-    val newSetDF = null;
-    //println(dataSetDF.columns(0))
-    //ontRDD(0).take(1).foreach(println)
-   // ruleSetDF(rule).show
-    
-  }*/
   
   //function to get the DF rows related to the rule
-  def ruleSetDF(rule: Map[Int, String], colDataSetDF: DataFrame): DataFrame = 
-  {
-    //TO-DO
+  def ruleSetDF(rule: Map[Int, String], dataSetDF: DataFrame = dataSetDF): DataFrame = {
+    if(rule.isEmpty)
+      return dataSetDF
     val filDF: Array[DataFrame] = new Array[DataFrame](rule.size)
-    rule.zipWithIndex.foreach({case(r, i) => filDF(i) = conceptSetDF(r._2, r._1, colDataSetDF)})
-      val ruleDF = intersectionDF(filDF).cache
- //   ruleCnd(rule) = ruleDF.count
- //   ruleCndC(rule) = ruleDF.filter(col(sgCol).like(sgClass)).count
-      ruleDF
+    rule.zipWithIndex.foreach({case(r, i) => filDF(i) = conceptSetDF(r._2, r._1, dataSetDF)})
+    
+    if(rule.size == ruleCounter){
+      println("rule.size == ruleCounter")
+      ruleCounter = 0
+      return dataSetDF
+    }
+    ruleCounter = 0 
+    val ruleDF = intersectionDF(filDF).coalesce(2)
+    ruleDF
   }
- 
+  
   //function to get the DF rows related to the concept
-  def conceptSetDF(concept: String, k: Int, colDataSetDF: DataFrame): DataFrame = 
-  {
-    //TO-DO
-    val concepts = List(concept) ++ descendants(concept, k)
+  def conceptSetDF(concept: String, k: Int, dataSetDF: DataFrame = dataSetDF): DataFrame = {
+    
+    if(checkTopConcept(concept, k)== true){
+        ruleCounter += 1
+        return dataSetDF
+    }
+    val concepts = List(concept) ++ getDescList(concept, k)
     val cartSize = concepts.size * ontMap(k).size
     val filDF: Array[DataFrame] = new Array[DataFrame](cartSize)
     var i = 0
-    ontMap(k).foreach(f=> concepts.foreach(x => {filDF(i) = colDataSetDF.filter(col(f).like(x)); i+=1}))
+    ontMap(k).foreach(f=> concepts.foreach(x => {filDF(i) = dataSetDF.filter(col(f).like(x)); i+=1}))
     unionDF(filDF).distinct
   }
   
-  def descendants(concept: String, k: Int): List[String] = 
-  {
-    val childRDD = ontRDD(k).filter(f => {f.getObject.toString.contains(concept)}).map(f => f.getSubject.toString.split("#").last)
-    var childList = childRDD.collect.toList
-    childList.foreach(f => childList = childList ++ descendants(f , k))
-    childList
-  }
-  
-  def intersectionDF( listDF : Seq[DataFrame]): DataFrame = 
-  {
+  def intersectionDF( listDF : Seq[DataFrame]): DataFrame = {
     listDF.reduce((x,y)=> x.intersect(y).coalesce(2))
   }
   
-  def unionDF( listDF : Seq[DataFrame]): DataFrame = 
-  {
+  def unionDF( listDF : Seq[DataFrame]): DataFrame = {
     listDF.reduce((x,y)=> x.union(y).coalesce(2))
   }
+  
+  def genDescendantsRDD(k: Int): RDD[(String, List[String])] = {
+    val conceptRDD = ont.value(k).map(f => f.getSubject.toString).union(ont.value(k).map(f => f.getObject.toString)).distinct
+    val descRDD = conceptRDD.map(f => {(f,getRawDescList(f,k))})
+    val wordfilDescRDD = descRDD.map( f => (f._1.split("#").last, f._2.map(x => x.split("#").last)))
+    wordfilDescRDD
+  }
+  
+  def getRawDescList(concept: String, k: Int): List[String] = {
+    val childRDD = ont.value(k).filter(f => {f.getObject.toString.contains(concept)}).map(f => f.getSubject.toString)
+    var childList = childRDD.collect.toList
+    childList.foreach(f => childList = childList ++ getRawDescList(f , k))
+    childList
+  }
+  
+  def getDescList(concept: String, k: Int): List[String] = {
+    val filRDD = descendantsRDD(k).filter(f => f._1.equals(concept))
+    filRDD.first._2
+  }
+  
+  //to find the immediate child/children concept of concept
+  def getChildren(concept: String, k: Int): List[String] = {
+    val childRDD = ont.value(k).filter(f => {f.getObject.toString.contains(concept)}).map(f => f.getSubject.toString)
+    val childList = childRDD.collect.toList
+    childList.map(x => x.split("#").last)
+  }
+
+  def calcWRAcc(rule: Map[Int, String]): Double = {
+    //println("ruleCnd(rule):"+ruleCnd(rule)+", N:"+ N +", ruleCndC(rule)"+ruleCndC(rule)+", C:"+C)
+    (ruleCnd(rule)/N.toDouble)*((ruleCndC(rule)/ruleCnd(rule).toDouble) - (C/N.toDouble))
+  } 
+  
+  def checkTopConcept(concept: String, k: Int): Boolean = {
+    println("checkTopConcept start")
+    if(concept.equals(TOP_CONCEPT)){
+      println("Yes top concept")
+      return true
+    }
+    var dataSetConcepts = new ListBuffer[String]()
+    ontMap(k).foreach(f => {dataSetDF.select(f).distinct.rdd.map(r => r(0)).collect.foreach(x => dataSetConcepts += x.toString)})
+    //dataSetConcepts.foreach(x => {println(x)})
+    val currentConcepts = descendantsRDD(k).filter(_._1.equals(concept)).first()._2
+    //println(currentConcepts)
+    println
+//    println(dataSetConcepts)
+//    println(currentConcepts)
+//    println(dataSetConcepts.length)
+//    println(currentConcepts.length)
+//    println(dataSetConcepts.length < currentConcepts.length)
+    println("checkTopConcept end")
+    if(dataSetConcepts.toSet.subsetOf(currentConcepts.toSet))
+      return true
+    else
+      return false
+  }
+  
 }

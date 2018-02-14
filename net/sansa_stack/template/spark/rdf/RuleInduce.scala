@@ -65,7 +65,7 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
   //rule construction method; 3 inputs: current rule, concept of ontology 'k', ontology index 'k' 
   def construct(rule: Map[Int, String], concept: String, k: Int){
     //TO-DO
-    println(ruleSet.size)
+    //println(ruleSet.size)
     if(ruleSet.size > 2){
       println(ruleSet.size)
       return
@@ -138,17 +138,17 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
   }
   
   //function to get the DF rows related to the rule
-  def ruleSetDF(rule: Map[Int, String]): DataFrame = {
+  def ruleSetDF(rule: Map[Int, String], dataSetDF: DataFrame = dataSetDF): DataFrame = {
     if(rule.isEmpty)
       return dataSetDF
     val filDF: Array[DataFrame] = new Array[DataFrame](rule.size)
-    rule.zipWithIndex.foreach({case(r, i) => filDF(i) = conceptSetDF(r._2, r._1)})
+    rule.zipWithIndex.foreach({case(r, i) => filDF(i) = conceptSetDF(r._2, r._1, dataSetDF)})
     val ruleDF = intersectionDF(filDF).cache
     ruleDF
   }
   
   //function to get the DF rows related to the concept
-  def conceptSetDF(concept: String, k: Int): DataFrame = {
+  def conceptSetDF(concept: String, k: Int, dataSetDF: DataFrame = dataSetDF): DataFrame = {
     val concepts = List(concept) ++ getDescList(concept, k)
     val cartSize = concepts.size * ontMap(k).size
     val filDF: Array[DataFrame] = new Array[DataFrame](cartSize)
