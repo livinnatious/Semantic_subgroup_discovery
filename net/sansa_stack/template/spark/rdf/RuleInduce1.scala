@@ -51,6 +51,7 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
   
   var colDataSetDF = dataSetDF.withColumn("counter", lit(5))
   var ruleCounter = 0
+  var coversAll = false
   
   def run(){
     //TO-DO
@@ -118,7 +119,7 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
            bestRuleSet.foreach(x => {println(x)})
            println("---------")
            i+=1
-         } while(colDataSetDF == null || i < ruleSet.length) 
+         } while(colDataSetDF.rdd.isEmpty()|| i < ruleSet.length) 
     } 
   
   def getBestRule(sortRuleSetWRAcc: ListBuffer[(Map[Int, String], Double)]): Map[Int, String] = {
@@ -129,16 +130,17 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
   def decreaseCount(bestRule: Map[Int, String]){
       import spark.implicits._
       println("decreaseCount Begining")
-      val decrementCounterUDF = udf((decrementCounter:Int) => decrementCounter-1) 
+      val decrementCounterUDF = udf((decrementCounter:Int) => decrementCounter-1)
+      println("decreaseCount -1")
+      if(coversAll == true){
+        coversAll = false
+        colDataSetDF = colDataSetDF.withColumn("counter", decrementCounterUDF($"counter"))
+        return
+      }
+      println("decreaseCount 0")
       val WRADF = ruleSetDF(bestRule, colDataSetDF)
-//      println("decreaseCount -1")
 //      if (WRADF == null)
 //        return
-//      println("decreaseCount 0")
-//      if(WRADF == colDataSetDF){
-//        colDataSetDF = colDataSetDF.withColumn("counter", decrementCounterUDF($"counter"))
-//        return
-//      }
       println("decreaseCount 1")
       val removeWRADFRow = colDataSetDF.except(WRADF)
       println("decreaseCount 2")
@@ -157,11 +159,12 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
     
     if(rule.size == ruleCounter){
       println("rule.size == ruleCounter")
+      coversAll = true
       ruleCounter = 0
       return dataSetDF
     }
     ruleCounter = 0 
-    val ruleDF = intersectionDF(filDF).coalesce(2)
+    val ruleDF = intersectionDF(filDF)
     ruleDF
   }
   
