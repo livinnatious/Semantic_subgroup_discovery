@@ -49,7 +49,7 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
   val ont = spark.sparkContext.broadcast(ontRDD)
   val descendantsRDD= new Array[RDD[(String, List[String])]](ontRDD.length);
   
-  var colDataSetDF = dataSetDF.withColumn("counter", lit(5))
+  var colDataSetDF = dataSetDF.filter(dataSetDF(sgCol) === sgClass).withColumn("counter", lit(50))
   var ruleCounter = 0
   var coversAll = false
   
@@ -119,7 +119,7 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
            bestRuleSet.foreach(x => {println(x)})
            println("---------")
            i+=1
-         } while(colDataSetDF.rdd.isEmpty()|| i < ruleSet.length) 
+         } while(colDataSetDF != null && i < ruleSet.length) 
     } 
   
   def getBestRule(sortRuleSetWRAcc: ListBuffer[(Map[Int, String], Double)]): Map[Int, String] = {
@@ -129,9 +129,8 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
   }
   def decreaseCount(bestRule: Map[Int, String]){
       import spark.implicits._
-      println("decreaseCount Begining")
+      println("decreaseCount Start")
       val decrementCounterUDF = udf((decrementCounter:Int) => decrementCounter-1)
-      println("decreaseCount -1")
       if(coversAll == true){
         coversAll = false
         colDataSetDF = colDataSetDF.withColumn("counter", decrementCounterUDF($"counter"))
@@ -156,7 +155,7 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
       return dataSetDF
     val filDF: Array[DataFrame] = new Array[DataFrame](rule.size)
     rule.zipWithIndex.foreach({case(r, i) => filDF(i) = conceptSetDF(r._2, r._1, dataSetDF)})
-    
+    println("union end")
     if(rule.size == ruleCounter){
       println("rule.size == ruleCounter")
       coversAll = true
@@ -164,7 +163,10 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
       return dataSetDF
     }
     ruleCounter = 0 
+    println("intersection start")
     val ruleDF = intersectionDF(filDF)
+    ruleDF.cache()
+    println("intersection end")
     ruleDF
   }
   
@@ -177,10 +179,16 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
     }
     val concepts = List(concept) ++ getDescList(concept, k)
     val cartSize = concepts.size * ontMap(k).size
+    println("concepts.size"+concepts.size)
+    println("ontMap(k).size"+ontMap(k).size)
     val filDF: Array[DataFrame] = new Array[DataFrame](cartSize)
     var i = 0
+    println("datasetDF take(1):")
+    dataSetDF.take(1).foreach(println)
+    println("----")
     ontMap(k).foreach(f=> concepts.foreach(x => {filDF(i) = dataSetDF.filter(col(f).like(x)); i+=1}))
-    unionDF(filDF).distinct
+    println("union start")
+    unionDF(filDF).distinct.cache()
   }
   
   def intersectionDF( listDF : Seq[DataFrame]): DataFrame = {
@@ -239,11 +247,15 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
 //    println(dataSetConcepts.length)
 //    println(currentConcepts.length)
 //    println(dataSetConcepts.length < currentConcepts.length)
-    println("checkTopConcept end")
-    if(dataSetConcepts.toSet.subsetOf(currentConcepts.toSet))
+//    println("checkTopConcept end")
+    if(dataSetConcepts.toSet.subsetOf(currentConcepts.toSet)){
+      println("checkTopConcept end true")
       return true
-    else
+    }
+    else{
+      println("checkTopConcept end false")
       return false
+    }
   }
   
 }
