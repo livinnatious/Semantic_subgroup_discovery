@@ -25,6 +25,7 @@ object SgDiscovery {
     val spark = SparkSession.builder
           .master("local[*]")
           .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+//          .config("spark.memory.fraction", "0.9")
           .appName("SgDiscovery")
           .getOrCreate()
     val sc = spark.sparkContext

@@ -33,16 +33,17 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
   val sgCol = "big_spender"
   val sgClass = "Yes"
   //ontology(index of args) to dataset(column) mapping
-  val ontMap = Map( 0 -> List("occupation"),
+  val ontMap = Map( 
+        0 -> List("occupation"),
         1 -> List("location"), 
         2 -> List("account", "loan", "deposit", "investment_fund", "insurance"))
-  
   // N(total records) and C(total subgrp records) to calc WRAcc of rule
   val N = dataSetDF.count
   val C = dataSetDF.filter(dataSetDF(sgCol) === sgClass).count     
   // ruleCnd and ruleCndC to calc WRAcc of rule
   var ruleCnd = Map[Map[Int, String], Long]()
   var ruleCndC = Map[Map[Int, String], Long]()
+  var ruleSetMitDF = Map[Map[Int, String], DataFrame]()
   
   var ruleSet = new ListBuffer[Map[Int, String]]()
   
@@ -57,14 +58,14 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
     //TO-DO
     for(i <- 0 until ontRDD.length)
       descendantsRDD(i) = genDescendantsRDD(i)
-      construct(Map(), TOP_CONCEPT, 0)  
-      println(ruleSet)
-      val ruleSetWRAcc = ruleSet.map(rule => (rule, calcWRAcc(rule)))
-      //val ruleSet = ListBuffer(Map(0 -> "Thing"), Map(1 -> "Thing", 0 -> "Thing"), Map(2 -> "Thing", 1 -> "Thing", 0 -> "Thing"), Map(1 -> "Location", 0 -> "Thing"), Map(2 -> "Thing", 1 -> "Location", 0 -> "Thing"), Map(1 -> "Europe", 0 -> "Thing"), Map(2 -> "Thing", 1 -> "Europe", 0 -> "Thing"), Map(0 -> "Occupation"), Map(1 -> "Thing", 0 -> "Occupation"), Map(2 -> "Thing", 1 -> "Thing", 0 -> "Occupation"), Map(1 -> "Location", 0 -> "Occupation"), Map(2 -> "Thing", 1 -> "Location", 0 -> "Occupation"), Map(1 -> "Europe", 0 -> "Occupation"), Map(2 -> "Thing", 1 -> "Europe", 0 -> "Occupation"), Map(0 -> "Public"), Map(1 -> "Thing", 0 -> "Public"), Map(2 -> "Thing", 1 -> "Thing", 0 -> "Public"), Map(1 -> "Location", 0 -> "Public"), Map(2 -> "Thing", 1 -> "Location", 0 -> "Public"), Map(1 -> "Europe", 0 -> "Public"), Map(2 -> "Thing", 1 -> "Europe", 0 -> "Public"));
-      //val ruleSetWRAcc = ListBuffer((Map(0 -> "Thing"),0.0), (Map(1 -> "Thing", 0 -> "Thing"),0.0), (Map(2 -> "Thing", 1 -> "Thing", 0 -> "Thing"),0.0), (Map(1 -> "Location", 0 -> "Thing"),0.0), (Map(2 -> "Thing", 1 -> "Location", 0 -> "Thing"),0.0), (Map(1 -> "Europe", 0 -> "Thing"),0.0), (Map(2 -> "Thing", 1 -> "Europe", 0 -> "Thing"),0.0), (Map(0 -> "Occupation"),0.0), (Map(1 -> "Thing", 0 -> "Occupation"),0.0), (Map(2 -> "Thing", 1 -> "Thing", 0 -> "Occupation"),0.0), (Map(1 -> "Location", 0 -> "Occupation"),0.0), (Map(2 -> "Thing", 1 -> "Location", 0 -> "Occupation"),0.0), (Map(1 -> "Europe", 0 -> "Occupation"),0.0), (Map(2 -> "Thing", 1 -> "Europe", 0 -> "Occupation"),0.0), (Map(0 -> "Public"),0.03333333333333335), (Map(1 -> "Thing", 0 -> "Public"),0.03333333333333335), (Map(2 -> "Thing", 1 -> "Thing", 0 -> "Public"),0.0), (Map(1 -> "Location", 0 -> "Public"),0.03333333333333335), (Map(2 -> "Thing", 1 -> "Location", 0 -> "Public"),0.0), (Map(1 -> "Europe", 0 -> "Public"),0.03333333333333335), (Map(2 -> "Thing", 1 -> "Europe", 0 -> "Public"),0.0));
-      println(ruleSetWRAcc)
-      ruleSelection(ruleSetWRAcc)
-    //checkTopConcept("Location", 1)
+    construct(Map(), TOP_CONCEPT, 0)  
+    println(ruleSet)
+    val ruleSetWRAcc = ruleSet.map(rule => (rule, calcWRAcc(rule)))
+    //val ruleSet = ListBuffer(Map(0 -> "Thing"), Map(1 -> "Thing", 0 -> "Thing"), Map(2 -> "Thing", 1 -> "Thing", 0 -> "Thing"), Map(1 -> "Location", 0 -> "Thing"), Map(2 -> "Thing", 1 -> "Location", 0 -> "Thing"), Map(1 -> "Europe", 0 -> "Thing"), Map(2 -> "Thing", 1 -> "Europe", 0 -> "Thing"), Map(0 -> "Occupation"), Map(1 -> "Thing", 0 -> "Occupation"), Map(2 -> "Thing", 1 -> "Thing", 0 -> "Occupation"), Map(1 -> "Location", 0 -> "Occupation"), Map(2 -> "Thing", 1 -> "Location", 0 -> "Occupation"), Map(1 -> "Europe", 0 -> "Occupation"), Map(2 -> "Thing", 1 -> "Europe", 0 -> "Occupation"), Map(0 -> "Public"), Map(1 -> "Thing", 0 -> "Public"), Map(2 -> "Thing", 1 -> "Thing", 0 -> "Public"), Map(1 -> "Location", 0 -> "Public"), Map(2 -> "Thing", 1 -> "Location", 0 -> "Public"), Map(1 -> "Europe", 0 -> "Public"), Map(2 -> "Thing", 1 -> "Europe", 0 -> "Public"));
+    //val ruleSetWRAcc = ListBuffer((Map(0 -> "Thing"),0.0), (Map(1 -> "Thing", 0 -> "Thing"),0.0), (Map(2 -> "Thing", 1 -> "Thing", 0 -> "Thing"),0.0), (Map(1 -> "Location", 0 -> "Thing"),0.0), (Map(2 -> "Thing", 1 -> "Location", 0 -> "Thing"),0.0), (Map(1 -> "Europe", 0 -> "Thing"),0.0), (Map(2 -> "Thing", 1 -> "Europe", 0 -> "Thing"),0.0), (Map(0 -> "Occupation"),0.0), (Map(1 -> "Thing", 0 -> "Occupation"),0.0), (Map(2 -> "Thing", 1 -> "Thing", 0 -> "Occupation"),0.0), (Map(1 -> "Location", 0 -> "Occupation"),0.0), (Map(2 -> "Thing", 1 -> "Location", 0 -> "Occupation"),0.0), (Map(1 -> "Europe", 0 -> "Occupation"),0.0), (Map(2 -> "Thing", 1 -> "Europe", 0 -> "Occupation"),0.0), (Map(0 -> "Public"),0.03333333333333335), (Map(1 -> "Thing", 0 -> "Public"),0.03333333333333335), (Map(2 -> "Thing", 1 -> "Thing", 0 -> "Public"),0.0), (Map(1 -> "Location", 0 -> "Public"),0.03333333333333335), (Map(2 -> "Thing", 1 -> "Location", 0 -> "Public"),0.0), (Map(1 -> "Europe", 0 -> "Public"),0.03333333333333335), (Map(2 -> "Thing", 1 -> "Europe", 0 -> "Public"),0.0));
+    println(ruleSetWRAcc)
+    ruleSelection(ruleSetWRAcc)
+  //checkTopConcept("Location", 1)
   }
   
   //rule construction method; 3 inputs: current rule, concept of ontology 'k', ontology index 'k' 
@@ -83,6 +84,7 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
       
       if(ruleAdd.size < MAX_TERMS && ruleAdd.size > 0){
         ruleSet += ruleAdd
+        ruleSetMitDF(ruleAdd) = newSetDF
         ruleCnd(ruleAdd) = allNewSetDF.count
         ruleCndC(ruleAdd) = newSetDF.count
       }
@@ -131,15 +133,21 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
       import spark.implicits._
       println("decreaseCount Start")
       val decrementCounterUDF = udf((decrementCounter:Int) => decrementCounter-1)
-      if(coversAll == true){
-        coversAll = false
+//      if(coversAll == true){
+//        coversAll = false
+//        colDataSetDF = colDataSetDF.withColumn("counter", decrementCounterUDF($"counter"))
+//        return
+//      }
+      println("decreaseCount 0")
+      val WRADFtemp = ruleSetMitDF(bestRule)
+      if(dataSetDF.except(WRADFtemp).count() == 0){
         colDataSetDF = colDataSetDF.withColumn("counter", decrementCounterUDF($"counter"))
         return
       }
-      println("decreaseCount 0")
-      val WRADF = ruleSetDF(bestRule, colDataSetDF)
-//      if (WRADF == null)
-//        return
+      val WRADF = colDataSetDF.join(WRADFtemp, WRADFtemp.columns)
+//      WRADF.show
+      if (WRADF == null)
+        return
       println("decreaseCount 1")
       val removeWRADFRow = colDataSetDF.except(WRADF)
       println("decreaseCount 2")
@@ -165,7 +173,6 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
     ruleCounter = 0 
     println("intersection start")
     val ruleDF = intersectionDF(filDF)
-    ruleDF.cache()
     println("intersection end")
     ruleDF
   }
@@ -188,7 +195,7 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
     println("----")
     ontMap(k).foreach(f=> concepts.foreach(x => {filDF(i) = dataSetDF.filter(col(f).like(x)); i+=1}))
     println("union start")
-    unionDF(filDF).distinct.cache()
+    unionDF(filDF).distinct
   }
   
   def intersectionDF( listDF : Seq[DataFrame]): DataFrame = {
