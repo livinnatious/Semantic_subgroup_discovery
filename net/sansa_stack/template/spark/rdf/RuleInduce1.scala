@@ -51,6 +51,7 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
   val descendantsRDD= new Array[RDD[(String, List[String])]](ontRDD.length);
   
   var colDataSetDF = dataSetDF.filter(dataSetDF(sgCol) === sgClass).withColumn("counter", lit(50))
+  val posDataSetDF = dataSetDF.filter(dataSetDF(sgCol) === sgClass)
   var ruleCounter = 0
   var coversAll = false
   
@@ -72,7 +73,7 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
   def construct(rule: Map[Int, String], concept: String, k: Int){
     //TO-DO
   //  println(ruleSet.size)
-    if(ruleSet.size > 20){
+    if(ruleSet.size > 2){
       println(ruleSet.size)
       return
     }
@@ -140,7 +141,8 @@ class RuleInduce1(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: Data
 //      }
       println("decreaseCount 0")
       val WRADFtemp = ruleSetMitDF(bestRule)
-      if(dataSetDF.except(WRADFtemp).count() == 0){
+//      println("kuch kuch hota h"+dataSetDF.except(WRADFtemp).count())
+      if(posDataSetDF.except(WRADFtemp).count() == 0){
         colDataSetDF = colDataSetDF.withColumn("counter", decrementCounterUDF($"counter"))
         return
       }
