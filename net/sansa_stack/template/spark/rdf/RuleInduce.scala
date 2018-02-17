@@ -37,6 +37,7 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
         0 -> List("occupation"),
         1 -> List("location"), 
         2 -> List("account", "loan", "deposit", "investment_fund", "insurance"))
+  
   // N(total records) and C(total subgrp records) to calc WRAcc of rule
   val N = dataSetDF.count
   val C = dataSetDF.filter(dataSetDF(sgCol) === sgClass).count     
