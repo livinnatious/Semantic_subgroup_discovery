@@ -25,7 +25,6 @@ object SgDiscovery {
     val spark = SparkSession.builder
           .master("local[*]")
           .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-//          .config("spark.memory.fraction", "0.9")
           .appName("SgDiscovery")
           .getOrCreate()
     val sc = spark.sparkContext
@@ -38,7 +37,6 @@ object SgDiscovery {
          .option("mode", "DROPMALFORMED")
          .option("delimiter", "\t")
          .load("src/main/resources/SG/bank.csv")
-    //dataSetDF.show()
 
     val ontRDD:Array[RDD[Triple]] = new Array[RDD[Triple]](args.length);
     
@@ -46,21 +44,14 @@ object SgDiscovery {
     args.zipWithIndex.foreach({
       case(arg, i) => ontRDD(i) = NTripleReader.load(spark, URI.create(arg)).filter(f => {f.getPredicate.toString.contains("subClassOf")})
       })
-      
-    //print ontology array
-    //ontRDD.foreach(x=>if(x!=null){
-    //  x.take(5).foreach(x=>println(x.getSubject))
-    //  println("-------")
-    //  })
  
     val bigRDD = sc.union(ontRDD).distinct
     val dictRDD = bigRDD.map(f => f.getSubject.toString).union(bigRDD.map(f => f.getObject.toString)).distinct
     
     //Create a uri to predicate dictionary data frame dictDF
     val dictDF = dictRDD.map(f=>(f, f.split("#").last)).toDF("uri","predicate")
-    //dictDF.show(false)
     
-    val ruleInduce = new RuleInduce1(dataSetDF, ontRDD, dictDF, spark)
+    val ruleInduce = new RuleInduce(dataSetDF, ontRDD, dictDF, spark)
     
     ruleInduce.run()
     
