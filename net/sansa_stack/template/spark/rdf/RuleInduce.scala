@@ -69,10 +69,8 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
   //rule construction method; 3 inputs: current rule, concept of ontology 'k', ontology index 'k' 
   def construct(rule: Map[Int, String], concept: String, k: Int){
 
-    if(ruleSet.size > 20){
-      println(ruleSet.size)
+    if(ruleSet.size > 30)
       return
-    }
     val allNewSetDF = ruleSetDF(rule).intersect(conceptSetDF(concept, k));
     val newSetDF = allNewSetDF.filter(dataSetDF(sgCol) === sgClass)
     if(newSetDF.count > MIN_SIZE){
@@ -150,7 +148,6 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
     val filDF: Array[DataFrame] = new Array[DataFrame](rule.size)
     rule.zipWithIndex.foreach({case(r, i) => filDF(i) = conceptSetDF(r._2, r._1, dataSetDF)})
     if(rule.size == ruleCounter){
-      println("rule.size == ruleCounter")
       ruleCounter = 0
       return dataSetDF
     }
