@@ -18,7 +18,7 @@ import net.sansa_stack.rdf.spark.io.NTripleReader
 import org.apache.jena.graph.Triple
 import org.apache.spark.sql.functions._
 
-class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataFrame, spark: SparkSession) extends Serializable{
+class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], /*dictDF: DataFrame,*/ spark: SparkSession) extends Serializable{
 
   //Config values wrt to ip dataset
   //minimum size(threshold) of interesting subgroup
@@ -141,8 +141,6 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
       return
     }
     val WRADF = colDataSetDF.join(WRADFtemp, WRADFtemp.columns)
-    if (WRADF == null)
-      return
     val newDF = WRADF.withColumn("counter", decrementCounterUDF($"counter"))
     val removeWRADFRow = colDataSetDF.except(WRADF)
     colDataSetDF = removeWRADFRow.union(newDF).filter($"counter">=1)

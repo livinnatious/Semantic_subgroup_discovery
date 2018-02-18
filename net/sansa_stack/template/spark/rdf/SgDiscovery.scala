@@ -21,6 +21,12 @@ object SgDiscovery {
   
   def main(args: Array[String]) = {
     
+    
+    println("====================================================")
+    println("|     Efficient Subgroup Discovery using Spark     |")
+    println("====================================================")
+    
+    
     //initializing the spark session locally
     val spark = SparkSession.builder
           .master("local[*]")
@@ -45,13 +51,14 @@ object SgDiscovery {
       case(arg, i) => ontRDD(i) = NTripleReader.load(spark, URI.create(arg)).filter(f => {f.getPredicate.toString.contains("subClassOf")})
       })
  
-    val bigRDD = sc.union(ontRDD).distinct
-    val dictRDD = bigRDD.map(f => f.getSubject.toString).union(bigRDD.map(f => f.getObject.toString)).distinct
+//    val bigRDD = sc.union(ontRDD).distinct
+//    val dictRDD = bigRDD.map(f => f.getSubject.toString).union(bigRDD.map(f => f.getObject.toString)).distinct
+//    
+//    //Create a uri to predicate dictionary data frame dictDF
+//    val dictDF = dictRDD.map(f=>(f, f.split("#").last)).toDF("uri","predicate")
     
-    //Create a uri to predicate dictionary data frame dictDF
-    val dictDF = dictRDD.map(f=>(f, f.split("#").last)).toDF("uri","predicate")
-    
-    val ruleInduce = new RuleInduce(dataSetDF, ontRDD, dictDF, spark)
+//    val ruleInduce = new RuleInduce(dataSetDF, ontRDD, dictDF, spark)
+    val ruleInduce = new RuleInduce(dataSetDF, ontRDD,  spark)
     
     ruleInduce.run()
     
