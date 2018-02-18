@@ -53,7 +53,7 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
   
   var colDataSetDF = dataSetDF.filter(dataSetDF(sgCol) === sgClass).withColumn("counter", lit(50))
   val posDataSetDF = dataSetDF.filter(dataSetDF(sgCol) === sgClass)
-  var ruleCounter = 0
+//  var ruleCounter = 0
   var totCOV, totSUP, totWRACC = 0.0
   
   def run(){
@@ -64,6 +64,7 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
     println(ruleSet)
     val ruleSetWRAcc = ruleSet.map(rule => (rule, calcWRAcc(rule)))
     println(ruleSetWRAcc)
+    println("RuleSet Size: "+ ruleSet.size)
     println("Avg COV: "+ totCOV/ruleSet.size)
     println("Avg SUP: "+ totSUP/ruleSet.size)
     println("Avg WRACC: "+ totWRACC/ruleSet.size)
@@ -77,15 +78,17 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
 //    if(ruleSet.size > 25)
 //      return
     val allNewSetDF = ruleSetDF(rule).intersect(conceptSetDF(concept, k));
-    val newSetDF = allNewSetDF.filter(dataSetDF(sgCol) === sgClass)
-    if(newSetDF.count > MIN_SIZE){
+    val newSetDF = allNewSetDF.filter(allNewSetDF(sgCol) === sgClass)
+    val newSetDFCount = newSetDF.count
+    if(newSetDFCount > MIN_SIZE){
       val ruleAdd = rule ++ Map( k -> concept)
       
       if(ruleAdd.size < MAX_TERMS && ruleAdd.size > 0){
+        println("Generating Rules...")
         ruleSet += ruleAdd
         ruleSetMitDF(ruleAdd) = newSetDF
         ruleCnd(ruleAdd) = allNewSetDF.count
-        ruleCndC(ruleAdd) = newSetDF.count
+        ruleCndC(ruleAdd) = newSetDFCount
       }
       
       if(ruleAdd.size < math.max(MAX_TERMS,MAX_ONT) && k < MAX_ONT-1){
@@ -104,45 +107,45 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
   def ruleSelection(ruleSetWRAcc: ListBuffer[(Map[Int, String], Double)]){ 
         
     var sortRuleSetWRAcc = ruleSetWRAcc.sortWith(_._2 > _._2)
-
     var i = 0
     val bestRuleSet = ListBuffer[Map[Int, String]]()
-        do
-        {     
-           val bestRule = getBestRule(sortRuleSetWRAcc)
-           println("bestrule: " + bestRule)
-           println("---------")
-           decreaseCount(bestRule)
-           val tempList = sortRuleSetWRAcc.slice(1, sortRuleSetWRAcc.length)
-           sortRuleSetWRAcc = tempList
-           bestRuleSet += bestRule
-           println("bestRuleSet:")
-           bestRuleSet.foreach(println)
-           println("---------")
-           i+=1
-         } while(colDataSetDF != null && i < ruleSet.length && i < 10) 
-    } 
+    do
+    {     
+      val bestRule = getBestRule(sortRuleSetWRAcc)
+      println("bestrule: " + bestRule)
+      println("---------")
+      decreaseCount(bestRule)
+      val tempList = sortRuleSetWRAcc.slice(1, sortRuleSetWRAcc.length)
+      sortRuleSetWRAcc = tempList
+      bestRuleSet += bestRule
+      println("bestRuleSet:")
+      bestRuleSet.foreach(println)
+      println("---------")
+      i+=1
+     } while(colDataSetDF != null && i < ruleSet.length && i < 10) 
+  } 
   
   def getBestRule(sortRuleSetWRAcc: ListBuffer[(Map[Int, String], Double)]): Map[Int, String] = {
    
      val bestRule = sortRuleSetWRAcc(0)._1
      bestRule 
   }
+  
   def decreaseCount(bestRule: Map[Int, String]){
     
-      import spark.implicits._
-      val decrementCounterUDF = udf((decrementCounter:Int) => decrementCounter-1)
-      val WRADFtemp = ruleSetMitDF(bestRule)
-      if(posDataSetDF.except(WRADFtemp).count == 0){
-        colDataSetDF = colDataSetDF.withColumn("counter", decrementCounterUDF($"counter"))
-        return
-      }
-      val WRADF = colDataSetDF.join(WRADFtemp, WRADFtemp.columns)
-      if (WRADF == null)
-        return
-      val newDF = WRADF.withColumn("counter", decrementCounterUDF($"counter"))
-      val removeWRADFRow = colDataSetDF.except(WRADF)
-      colDataSetDF = removeWRADFRow.union(newDF).filter($"counter">=1)
+    import spark.implicits._
+    val decrementCounterUDF = udf((decrementCounter:Int) => decrementCounter-1)
+    val WRADFtemp = ruleSetMitDF(bestRule)
+    if(posDataSetDF.except(WRADFtemp).count == 0){
+      colDataSetDF = colDataSetDF.withColumn("counter", decrementCounterUDF($"counter"))
+      return
+    }
+    val WRADF = colDataSetDF.join(WRADFtemp, WRADFtemp.columns)
+    if (WRADF == null)
+      return
+    val newDF = WRADF.withColumn("counter", decrementCounterUDF($"counter"))
+    val removeWRADFRow = colDataSetDF.except(WRADF)
+    colDataSetDF = removeWRADFRow.union(newDF).filter($"counter">=1)
   }
   
   //function to get the DF rows related to the rule
@@ -152,11 +155,11 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
       return dataSetDF
     val filDF: Array[DataFrame] = new Array[DataFrame](rule.size)
     rule.zipWithIndex.foreach({case(r, i) => filDF(i) = conceptSetDF(r._2, r._1, dataSetDF)})
-    if(rule.size == ruleCounter){
-      ruleCounter = 0
-      return dataSetDF
-    }
-    ruleCounter = 0 
+//    if(rule.size == ruleCounter){
+//      ruleCounter = 0
+//      return dataSetDF
+//    }
+//    ruleCounter = 0 
     val ruleDF = intersectionDF(filDF)
     ruleDF
   }
@@ -165,7 +168,7 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
   def conceptSetDF(concept: String, k: Int, dataSetDF: DataFrame = dataSetDF): DataFrame = {
     
     if(checkTopConcept(concept, k)== true){
-        ruleCounter += 1
+//        ruleCounter += 1
         return dataSetDF
     }
     val concepts = List(concept) ++ getDescList(concept, k)
@@ -210,9 +213,6 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
     totCOV += ruleCnd(rule).toDouble/N.toDouble
     totSUP += ruleCndC(rule).toDouble/C.toDouble
     totWRACC += (ruleCnd(rule)/N.toDouble)*((ruleCndC(rule)/ruleCnd(rule).toDouble) - (C/N.toDouble))
-    println("COV "+ruleCnd(rule).toDouble/N.toDouble)
-    println("SUP "+ruleCndC(rule).toDouble/C.toDouble)
-    println("WRACC "+(ruleCnd(rule)/N.toDouble)*((ruleCndC(rule)/ruleCnd(rule).toDouble) - (C/N.toDouble)))
     (ruleCnd(rule)/N.toDouble)*((ruleCndC(rule)/ruleCnd(rule).toDouble) - (C/N.toDouble))
   } 
   
