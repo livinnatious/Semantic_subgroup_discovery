@@ -54,6 +54,7 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
   var colDataSetDF = dataSetDF.filter(dataSetDF(sgCol) === sgClass).withColumn("counter", lit(50))
   val posDataSetDF = dataSetDF.filter(dataSetDF(sgCol) === sgClass)
   var ruleCounter = 0
+  var totCOV, totSUP, totWRACC = 0.0
   
   def run(){
     
@@ -63,6 +64,9 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
     println(ruleSet)
     val ruleSetWRAcc = ruleSet.map(rule => (rule, calcWRAcc(rule)))
     println(ruleSetWRAcc)
+    println("Avg COV: "+ totCOV/ruleSet.size)
+    println("Avg SUP: "+ totSUP/ruleSet.size)
+    println("Avg WRACC: "+ totWRACC/ruleSet.size)
     ruleSelection(ruleSetWRAcc)
     
   }
@@ -70,8 +74,8 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
   //rule construction method; 3 inputs: current rule, concept of ontology 'k', ontology index 'k' 
   def construct(rule: Map[Int, String], concept: String, k: Int){
 
-    if(ruleSet.size > 25)
-      return
+//    if(ruleSet.size > 25)
+//      return
     val allNewSetDF = ruleSetDF(rule).intersect(conceptSetDF(concept, k));
     val newSetDF = allNewSetDF.filter(dataSetDF(sgCol) === sgClass)
     if(newSetDF.count > MIN_SIZE){
@@ -116,7 +120,7 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
            bestRuleSet.foreach(println)
            println("---------")
            i+=1
-         } while(colDataSetDF != null && i < ruleSet.length) 
+         } while(colDataSetDF != null && i < ruleSet.length && i < 10) 
     } 
   
   def getBestRule(sortRuleSetWRAcc: ListBuffer[(Map[Int, String], Double)]): Map[Int, String] = {
@@ -203,7 +207,9 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
   }
 
   def calcWRAcc(rule: Map[Int, String]): Double = {
-
+    totCOV += ruleCnd(rule).toDouble/N.toDouble
+    totSUP += ruleCndC(rule).toDouble/C.toDouble
+    totWRACC += (ruleCnd(rule)/N.toDouble)*((ruleCndC(rule)/ruleCnd(rule).toDouble) - (C/N.toDouble))
     println("COV "+ruleCnd(rule).toDouble/N.toDouble)
     println("SUP "+ruleCndC(rule).toDouble/C.toDouble)
     println("WRACC "+(ruleCnd(rule)/N.toDouble)*((ruleCndC(rule)/ruleCnd(rule).toDouble) - (C/N.toDouble)))
