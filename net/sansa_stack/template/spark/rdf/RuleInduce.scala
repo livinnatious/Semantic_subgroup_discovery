@@ -22,7 +22,7 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
 
   //Config values wrt to ip dataset
   //minimum size(threshold) of interesting subgroup
-  val MIN_SIZE = 8
+  val MIN_SIZE = 4
   //max terms in the rule(model)
   val MAX_TERMS = 4
   //max ontologies allowed(as per SEGS)
@@ -70,7 +70,7 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
   //rule construction method; 3 inputs: current rule, concept of ontology 'k', ontology index 'k' 
   def construct(rule: Map[Int, String], concept: String, k: Int){
 
-    if(ruleSet.size > 30)
+    if(ruleSet.size > 25)
       return
     val allNewSetDF = ruleSetDF(rule).intersect(conceptSetDF(concept, k));
     val newSetDF = allNewSetDF.filter(dataSetDF(sgCol) === sgClass)
@@ -113,7 +113,7 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
            sortRuleSetWRAcc = tempList
            bestRuleSet += bestRule
            println("bestRuleSet:")
-           bestRuleSet.foreach(x => {println(x)})
+           bestRuleSet.foreach(println)
            println("---------")
            i+=1
          } while(colDataSetDF != null && i < ruleSet.length) 
@@ -129,15 +129,15 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
       import spark.implicits._
       val decrementCounterUDF = udf((decrementCounter:Int) => decrementCounter-1)
       val WRADFtemp = ruleSetMitDF(bestRule)
-      if(posDataSetDF.except(WRADFtemp).count() == 0){
+      if(posDataSetDF.except(WRADFtemp).count == 0){
         colDataSetDF = colDataSetDF.withColumn("counter", decrementCounterUDF($"counter"))
         return
       }
       val WRADF = colDataSetDF.join(WRADFtemp, WRADFtemp.columns)
       if (WRADF == null)
         return
-      val removeWRADFRow = colDataSetDF.except(WRADF)
       val newDF = WRADF.withColumn("counter", decrementCounterUDF($"counter"))
+      val removeWRADFRow = colDataSetDF.except(WRADF)
       colDataSetDF = removeWRADFRow.union(newDF).filter($"counter">=1)
   }
   
@@ -204,6 +204,9 @@ class RuleInduce(dataSetDF: DataFrame, ontRDD: Array[RDD[Triple]], dictDF: DataF
 
   def calcWRAcc(rule: Map[Int, String]): Double = {
 
+    println("COV "+ruleCnd(rule).toDouble/N.toDouble)
+    println("SUP "+ruleCndC(rule).toDouble/C.toDouble)
+    println("WRACC "+(ruleCnd(rule)/N.toDouble)*((ruleCndC(rule)/ruleCnd(rule).toDouble) - (C/N.toDouble)))
     (ruleCnd(rule)/N.toDouble)*((ruleCndC(rule)/ruleCnd(rule).toDouble) - (C/N.toDouble))
   } 
   
